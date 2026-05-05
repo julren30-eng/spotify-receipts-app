@@ -1,0 +1,515 @@
+
+<h2 class="sr-only">Spotify Billing Receipt Recorder — track payments, advance billing, works offline on mobile</h2>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+.app{padding:1.25rem 0;max-width:680px;font-family:var(--font-sans);}
+.header{display:flex;align-items:center;gap:12px;margin-bottom:1.25rem;}
+.logo{width:36px;height:36px;border-radius:50%;background:#1DB954;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.logo svg{width:20px;height:20px;fill:white;}
+.header-text h1{font-size:18px;font-weight:500;color:var(--color-text-primary);}
+.header-text p{font-size:13px;color:var(--color-text-secondary);}
+.tabs{display:flex;gap:4px;margin-bottom:1rem;border-bottom:0.5px solid var(--color-border-tertiary);padding-bottom:0;}
+.tab{font-size:13px;padding:6px 14px;border:none;background:none;cursor:pointer;color:var(--color-text-secondary);border-bottom:2px solid transparent;margin-bottom:-0.5px;font-family:var(--font-sans);}
+.tab.active{color:#1DB954;border-bottom:2px solid #1DB954;font-weight:500;}
+.panel{display:none;}.panel.active{display:block;}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-bottom:1rem;}
+.stat-card{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:0.65rem 0.85rem;}
+.stat-label{font-size:11px;color:var(--color-text-secondary);margin-bottom:3px;}
+.stat-value{font-size:19px;font-weight:500;color:var(--color-text-primary);}
+.stat-value.green{color:#1DB954;}
+.stat-value.amber{color:#BA7517;}
+.stat-value.red{color:#A32D2D;}
+.section{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:1rem 1.1rem;margin-bottom:1rem;}
+.section-title{font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:0.65rem;text-transform:uppercase;letter-spacing:.05em;}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+.form-row.three{grid-template-columns:1fr 1fr 1fr;}
+.form-row.four{grid-template-columns:1fr 1fr 1fr 1fr;}
+.form-group{display:flex;flex-direction:column;gap:3px;}
+.form-group label{font-size:11px;color:var(--color-text-secondary);}
+.form-group input,.form-group select{font-size:13px;padding:5px 8px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-secondary);color:var(--color-text-primary);width:100%;}
+.btn-add{background:#1DB954;color:white;border:none;border-radius:var(--border-radius-md);padding:7px 16px;font-size:13px;font-weight:500;cursor:pointer;margin-top:2px;}
+.btn-add:hover{background:#17a34a;}
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed;}
+th{text-align:left;padding:5px 7px;color:var(--color-text-secondary);font-weight:500;border-bottom:0.5px solid var(--color-border-tertiary);font-size:11px;}
+td{padding:7px 7px;border-bottom:0.5px solid var(--color-border-tertiary);color:var(--color-text-primary);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+.badge{display:inline-block;padding:2px 7px;border-radius:99px;font-size:10px;font-weight:500;}
+.badge-paid{background:#d4f5e2;color:#0f6e56;}
+.badge-pending{background:#FAEEDA;color:#854F0B;}
+.badge-failed{background:#FCEBEB;color:#A32D2D;}
+.badge-advance{background:#E6F1FB;color:#185FA5;}
+.badge-expiring{background:#FAEEDA;color:#854F0B;}
+.badge-expired{background:#FCEBEB;color:#A32D2D;}
+.badge-active{background:#d4f5e2;color:#0f6e56;}
+.btn-del{background:none;border:none;color:var(--color-text-secondary);cursor:pointer;font-size:13px;padding:2px 5px;border-radius:4px;}
+.btn-del:hover{color:#E24B4A;background:var(--color-background-secondary);}
+.btn-sm{background:none;border:0.5px solid var(--color-border-secondary);color:var(--color-text-primary);cursor:pointer;font-size:11px;padding:2px 8px;border-radius:var(--border-radius-md);}
+.btn-sm:hover{background:var(--color-background-secondary);}
+.empty{text-align:center;padding:1.5rem;color:var(--color-text-secondary);font-size:13px;}
+.filter-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0.65rem;}
+.filter-btn{font-size:11px;padding:3px 10px;border-radius:99px;border:0.5px solid var(--color-border-secondary);background:none;cursor:pointer;color:var(--color-text-secondary);}
+.filter-btn.active{background:#1DB954;color:white;border-color:#1DB954;}
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:100;align-items:center;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal{background:var(--color-background-primary);border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);padding:1.25rem;min-width:280px;max-width:360px;width:90vw;max-height:90vh;overflow-y:auto;}
+.modal h3{font-size:15px;font-weight:500;margin-bottom:0.85rem;color:var(--color-text-primary);}
+.receipt-line{display:flex;justify-content:space-between;padding:4px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:12px;}
+.receipt-line:last-of-type{border-bottom:none;}
+.rl{color:var(--color-text-secondary);}
+.receipt-total{display:flex;justify-content:space-between;font-size:14px;font-weight:500;margin-top:8px;padding-top:8px;border-top:0.5px solid var(--color-border-secondary);}
+.modal-close{margin-top:0.85rem;width:100%;background:var(--color-background-secondary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:7px;font-size:13px;cursor:pointer;color:var(--color-text-primary);}
+.modal-close:hover{background:var(--color-border-tertiary);}
+.install-banner{background:var(--color-background-secondary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);padding:0.85rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.install-banner .icon{font-size:22px;flex-shrink:0;}
+.install-banner .text{flex:1;min-width:160px;}
+.install-banner .text strong{font-size:13px;font-weight:500;color:var(--color-text-primary);display:block;}
+.install-banner .text span{font-size:12px;color:var(--color-text-secondary);}
+.btn-install{background:#1DB954;color:white;border:none;border-radius:var(--border-radius-md);padding:6px 14px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;}
+.steps-list{list-style:none;padding:0;}
+.steps-list li{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:0.5px solid var(--color-border-tertiary);font-size:13px;color:var(--color-text-primary);}
+.steps-list li:last-child{border-bottom:none;}
+.step-num{width:22px;height:22px;border-radius:50%;background:#1DB954;color:white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0;margin-top:1px;}
+.step-sub{font-size:11px;color:var(--color-text-secondary);margin-top:2px;}
+.alert-row{background:#FAEEDA;border-radius:var(--border-radius-md);padding:8px 10px;margin-bottom:8px;font-size:12px;color:#854F0B;display:flex;align-items:center;gap:8px;}
+.alert-row .ai{flex-shrink:0;font-size:14px;}
+.days-bar{height:6px;border-radius:3px;background:var(--color-border-tertiary);margin-top:4px;overflow:hidden;}
+.days-fill{height:100%;border-radius:3px;transition:width .3s;}
+.adv-card{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:10px 12px;margin-bottom:8px;position:relative;}
+.adv-card:last-child{margin-bottom:0;}
+.adv-name{font-size:13px;font-weight:500;color:var(--color-text-primary);}
+.adv-meta{font-size:11px;color:var(--color-text-secondary);margin-top:2px;}
+.adv-actions{display:flex;gap:6px;margin-top:8px;}
+@media(max-width:480px){
+  .form-row.four{grid-template-columns:1fr 1fr;}
+  .form-row.three{grid-template-columns:1fr 1fr;}
+  .form-row{grid-template-columns:1fr 1fr;}
+  th:nth-child(4),td:nth-child(4),th:nth-child(6),td:nth-child(6){display:none;}
+}
+</style>
+
+<div class="app">
+<div class="header">
+  <div class="logo"><svg viewBox="0 0 24 24"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/></svg></div>
+  <div class="header-text"><h1>Spotify billing receipts</h1><p>Payments · Advance billing · Offline on mobile</p></div>
+</div>
+
+<div id="install-banner" class="install-banner" style="display:none">
+  <div class="icon">📲</div>
+  <div class="text"><strong>Save to home screen for offline use</strong><span>Works without internet — tap the guide tab for steps</span></div>
+  <button class="btn-install" onclick="switchTab('transfer')">How to install</button>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('payments')">Payments</button>
+  <button class="tab" onclick="switchTab('advance')">Advance billing</button>
+  <button class="tab" onclick="switchTab('transfer')">Mobile guide</button>
+</div>
+
+<!-- PAYMENTS TAB -->
+<div class="panel active" id="panel-payments">
+  <div class="stats" id="stats"></div>
+  <div id="expiry-alerts"></div>
+  <div class="section">
+    <div class="section-title">Add payment record</div>
+    <div class="form-row">
+      <div class="form-group"><label>Payer name</label><input type="text" id="inp-name" placeholder="e.g. Maria Santos"/></div>
+      <div class="form-group"><label>Plan</label>
+        <select id="inp-plan" onchange="autoAmount()">
+          <option value="Individual">Individual</option>
+          <option value="Duo">Duo</option>
+          <option value="Family">Family</option>
+          <option value="Student">Student</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row three">
+      <div class="form-group"><label>Amount (₱)</label><input type="number" id="inp-amount" placeholder="159" min="0" step="0.01"/></div>
+      <div class="form-group"><label>Payment date</label><input type="date" id="inp-date"/></div>
+      <div class="form-group"><label>Status</label>
+        <select id="inp-status">
+          <option value="Paid">Paid</option>
+          <option value="Pending">Pending</option>
+          <option value="Failed">Failed</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Payment method</label>
+        <select id="inp-method">
+          <option>GCash</option><option>Maya</option><option>Credit card</option><option>Debit card</option><option>PayPal</option><option>Bank transfer</option><option>Cash</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Notes (optional)</label><input type="text" id="inp-notes" placeholder="e.g. Monthly renewal"/></div>
+    </div>
+    <button class="btn-add" onclick="addRecord()">+ Add receipt</button>
+  </div>
+  <div class="section">
+    <div class="section-title">Payment history</div>
+    <div class="filter-row" id="filters"></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th style="width:20%">Name</th>
+          <th style="width:14%">Plan</th>
+          <th style="width:16%">Date</th>
+          <th style="width:13%">Amount</th>
+          <th style="width:13%">Status</th>
+          <th style="width:12%">Method</th>
+          <th style="width:12%"></th>
+        </tr></thead>
+        <tbody id="records-body"></tbody>
+      </table>
+      <div class="empty" id="empty-msg" style="display:none">No records yet. Add one above.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ADVANCE BILLING TAB -->
+<div class="panel" id="panel-advance">
+  <div class="section">
+    <div class="section-title">Add advance payment</div>
+    <div class="form-row">
+      <div class="form-group"><label>Payer name</label><input type="text" id="adv-name" placeholder="e.g. Juan dela Cruz"/></div>
+      <div class="form-group"><label>Plan</label>
+        <select id="adv-plan" onchange="autoAdvAmount()">
+          <option value="Individual">Individual</option>
+          <option value="Duo">Duo</option>
+          <option value="Family">Family</option>
+          <option value="Student">Student</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row three">
+      <div class="form-group"><label>Amount paid (₱)</label><input type="number" id="adv-amount" placeholder="318" min="0" step="0.01"/></div>
+      <div class="form-group"><label>Months covered</label>
+        <select id="adv-months">
+          <option value="1">1 month</option>
+          <option value="2" selected>2 months</option>
+          <option value="3">3 months</option>
+          <option value="6">6 months</option>
+          <option value="12">12 months</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Start date</label><input type="date" id="adv-start"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Payment method</label>
+        <select id="adv-method">
+          <option>GCash</option><option>Maya</option><option>Credit card</option><option>Debit card</option><option>PayPal</option><option>Bank transfer</option><option>Cash</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Notes (optional)</label><input type="text" id="adv-notes" placeholder="e.g. Paid 2 months ahead"/></div>
+    </div>
+    <button class="btn-add" onclick="addAdvance()">+ Add advance payment</button>
+  </div>
+  <div class="section">
+    <div class="section-title">Advance billing tracker</div>
+    <div id="advance-list"><div class="empty">No advance payments yet.</div></div>
+  </div>
+</div>
+
+<!-- MOBILE GUIDE TAB -->
+<div class="panel" id="panel-transfer">
+  <div class="section">
+    <div class="section-title">Save this app to your phone — no internet needed</div>
+    <div style="font-size:13px;color:var(--color-text-secondary);margin-bottom:12px;">All your data is saved in your browser's local storage — it stays even offline. Follow these steps to install it like an app on your home screen.</div>
+
+    <div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;margin-top:4px;">On Android (Chrome)</div>
+    <ul class="steps-list">
+      <li><div class="step-num">1</div><div><div>Open this page in Chrome</div><div class="step-sub">Make sure you're on the Claude.ai page with this tool open</div></div></li>
+      <li><div class="step-num">2</div><div><div>Tap the three-dot menu (⋮) at the top right</div><div class="step-sub">Then tap "Add to Home screen"</div></div></li>
+      <li><div class="step-num">3</div><div><div>Tap "Add" on the confirmation prompt</div><div class="step-sub">The icon will appear on your home screen like a real app</div></div></li>
+      <li><div class="step-num">4</div><div><div>Open the app from your home screen</div><div class="step-sub">Works fully offline — your receipts are stored on your device</div></div></li>
+    </ul>
+
+    <div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;margin-top:14px;">On iPhone (Safari)</div>
+    <ul class="steps-list">
+      <li><div class="step-num">1</div><div><div>Open this page in Safari (not Chrome)</div><div class="step-sub">PWA install only works in Safari on iOS</div></div></li>
+      <li><div class="step-num">2</div><div><div>Tap the Share button at the bottom</div><div class="step-sub">It looks like a box with an arrow pointing up</div></div></li>
+      <li><div class="step-num">3</div><div><div>Scroll down and tap "Add to Home Screen"</div><div class="step-sub">Give it a name like "Spotify Receipts"</div></div></li>
+      <li><div class="step-num">4</div><div><div>Tap "Add" in the top right</div><div class="step-sub">Launch it from your home screen anytime — no internet required</div></div></li>
+    </ul>
+
+    <div style="font-size:12px;font-weight:500;color:var(--color-text-secondary);margin-bottom:6px;margin-top:14px;">Export and backup your data</div>
+    <ul class="steps-list">
+      <li><div class="step-num">1</div><div><div>Tap "Export data" below to download a JSON backup</div><div class="step-sub">Save it to Google Drive or your Files app for safekeeping</div></div></li>
+      <li><div class="step-num">2</div><div><div>To restore, tap "Import data" and select your backup file</div><div class="step-sub">All receipts and advance payments will be restored</div></div></li>
+    </ul>
+
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+      <button class="btn-add" onclick="exportData()">Export data (JSON)</button>
+      <label class="btn-add" style="cursor:pointer;display:inline-block;">Import data <input type="file" accept=".json" style="display:none" onchange="importData(event)"/></label>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Tips for offline use</div>
+    <ul class="steps-list">
+      <li><div class="step-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">✓</div><div><div>All data saved automatically on every entry</div><div class="step-sub">No "Save" button needed — just add and close</div></div></li>
+      <li><div class="step-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">✓</div><div><div>Use GCash or Maya as your payment method</div><div class="step-sub">Log the payment here right after sending money</div></div></li>
+      <li><div class="step-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">✓</div><div><div>Export a backup monthly</div><div class="step-sub">Protects against clearing browser data accidentally</div></div></li>
+      <li><div class="step-num" style="background:var(--color-background-secondary);color:var(--color-text-secondary);">✓</div><div><div>Check advance billing tab before collecting</div><div class="step-sub">See who still has months left so you don't double-charge</div></div></li>
+    </ul>
+  </div>
+</div>
+</div>
+
+<div class="modal-bg" id="modal-bg" onclick="closeModal(event)">
+  <div class="modal" id="modal-box">
+    <h3 id="modal-title">Receipt details</h3>
+    <div id="modal-content"></div>
+    <button class="modal-close" onclick="closeModal()">Close</button>
+  </div>
+</div>
+
+<script>
+const PLAN_AMOUNTS={Individual:159,Duo:214,Family:269,Student:99};
+let records=[];let advances=[];let filterStatus='All';
+
+function loadData(){
+  try{records=JSON.parse(localStorage.getItem('sp_receipts')||'[]');}catch(e){records=[];}
+  try{advances=JSON.parse(localStorage.getItem('sp_advances')||'[]');}catch(e){advances=[];}
+}
+function save(){
+  localStorage.setItem('sp_receipts',JSON.stringify(records));
+  localStorage.setItem('sp_advances',JSON.stringify(advances));
+}
+loadData();
+
+document.getElementById('inp-date').value=new Date().toISOString().split('T')[0];
+document.getElementById('adv-start').value=new Date().toISOString().split('T')[0];
+document.getElementById('inp-amount').value=PLAN_AMOUNTS['Individual'];
+document.getElementById('adv-amount').value=PLAN_AMOUNTS['Individual']*2;
+
+function autoAmount(){
+  const p=document.getElementById('inp-plan').value;
+  document.getElementById('inp-amount').value=PLAN_AMOUNTS[p];
+}
+function autoAdvAmount(){
+  const p=document.getElementById('adv-plan').value;
+  const m=parseInt(document.getElementById('adv-months').value);
+  document.getElementById('adv-amount').value=(PLAN_AMOUNTS[p]*m).toFixed(2);
+}
+document.getElementById('adv-months').addEventListener('change',autoAdvAmount);
+document.getElementById('adv-plan').addEventListener('change',autoAdvAmount);
+
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach((el,i)=>{
+    const names=['payments','advance','transfer'];
+    el.classList.toggle('active',names[i]===t);
+  });
+  document.querySelectorAll('.panel').forEach(el=>el.classList.remove('active'));
+  document.getElementById('panel-'+t).classList.add('active');
+}
+
+function addRecord(){
+  const name=document.getElementById('inp-name').value.trim();
+  const plan=document.getElementById('inp-plan').value;
+  const amount=parseFloat(document.getElementById('inp-amount').value);
+  const date=document.getElementById('inp-date').value;
+  const status=document.getElementById('inp-status').value;
+  const method=document.getElementById('inp-method').value;
+  const notes=document.getElementById('inp-notes').value.trim();
+  if(!name||!amount||!date){alert('Please fill in name, amount, and date.');return;}
+  records.unshift({id:Date.now(),name,plan,amount,date,status,method,notes});
+  save();renderPayments();
+  document.getElementById('inp-name').value='';
+  document.getElementById('inp-notes').value='';
+}
+
+function addAdvance(){
+  const name=document.getElementById('adv-name').value.trim();
+  const plan=document.getElementById('adv-plan').value;
+  const amount=parseFloat(document.getElementById('adv-amount').value);
+  const months=parseInt(document.getElementById('adv-months').value);
+  const start=document.getElementById('adv-start').value;
+  const method=document.getElementById('adv-method').value;
+  const notes=document.getElementById('adv-notes').value.trim();
+  if(!name||!amount||!start){alert('Please fill in name, amount, and start date.');return;}
+  const startD=new Date(start+'T00:00:00');
+  const endD=new Date(startD);
+  endD.setMonth(endD.getMonth()+months);
+  advances.unshift({id:Date.now(),name,plan,amount,months,start,end:endD.toISOString().split('T')[0],method,notes});
+  save();renderAdvances();
+  document.getElementById('adv-name').value='';
+  document.getElementById('adv-notes').value='';
+}
+
+function deleteRecord(id){records=records.filter(r=>r.id!==id);save();renderPayments();}
+function deleteAdvance(id){advances=advances.filter(a=>a.id!==id);save();renderAdvances();}
+
+function daysLeft(end){
+  const now=new Date();now.setHours(0,0,0,0);
+  const e=new Date(end+'T00:00:00');
+  return Math.ceil((e-now)/(1000*60*60*24));
+}
+
+function advStatus(end){
+  const d=daysLeft(end);
+  if(d<0)return{label:'Expired',cls:'badge-expired'};
+  if(d<=7)return{label:'Expiring soon',cls:'badge-expiring'};
+  return{label:'Active',cls:'badge-active'};
+}
+
+function fmtDate(d){
+  return new Date(d+'T00:00:00').toLocaleDateString('en-PH',{month:'short',day:'numeric',year:'numeric'});
+}
+
+function renderPayments(){
+  renderStats();renderFilters();
+  const filtered=filterStatus==='All'?records:records.filter(r=>r.status===filterStatus);
+  const tbody=document.getElementById('records-body');
+  const empty=document.getElementById('empty-msg');
+  tbody.innerHTML='';
+  if(!filtered.length){empty.style.display='';return;}
+  empty.style.display='none';
+  filtered.forEach(r=>{
+    const bc=r.status==='Paid'?'badge-paid':r.status==='Pending'?'badge-pending':'badge-failed';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td style="font-weight:500">${r.name}</td><td>${r.plan}</td><td>${fmtDate(r.date)}</td><td>₱${r.amount.toFixed(2)}</td><td><span class="badge ${bc}">${r.status}</span></td><td style="font-size:11px;color:var(--color-text-secondary)">${r.method}</td><td style="display:flex;gap:3px;align-items:center"><button class="btn-sm" onclick="viewRecord(${r.id})">View</button><button class="btn-del" onclick="deleteRecord(${r.id})">&#x2715;</button></td>`;
+    tbody.appendChild(tr);
+  });
+  renderAlerts();
+}
+
+function renderStats(){
+  const total=records.reduce((s,r)=>s+(r.status==='Paid'?r.amount:0),0);
+  const paid=records.filter(r=>r.status==='Paid').length;
+  const pending=records.filter(r=>r.status==='Pending').length;
+  const advActive=advances.filter(a=>daysLeft(a.end)>=0).length;
+  document.getElementById('stats').innerHTML=`
+    <div class="stat-card"><div class="stat-label">Total collected</div><div class="stat-value green">₱${total.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+    <div class="stat-card"><div class="stat-label">Paid records</div><div class="stat-value">${paid}</div></div>
+    <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value amber">${pending}</div></div>
+    <div class="stat-card"><div class="stat-label">Active advance</div><div class="stat-value" style="color:#185FA5">${advActive}</div></div>
+  `;
+}
+
+function renderAlerts(){
+  const expiring=advances.filter(a=>{const d=daysLeft(a.end);return d>=0&&d<=7;});
+  const el=document.getElementById('expiry-alerts');
+  if(!expiring.length){el.innerHTML='';return;}
+  el.innerHTML=expiring.map(a=>`<div class="alert-row"><div class="ai">⚠</div><div><strong>${a.name}</strong>'s advance billing expires in <strong>${daysLeft(a.end)}</strong> day(s) — collect next payment soon.</div></div>`).join('');
+}
+
+function renderFilters(){
+  const statuses=['All','Paid','Pending','Failed'];
+  document.getElementById('filters').innerHTML=statuses.map(s=>
+    `<button class="filter-btn ${filterStatus===s?'active':''}" onclick="setFilter('${s}')">${s}</button>`
+  ).join('');
+}
+
+function renderAdvances(){
+  const el=document.getElementById('advance-list');
+  if(!advances.length){el.innerHTML='<div class="empty">No advance payments yet.</div>';return;}
+  el.innerHTML=advances.map(a=>{
+    const d=daysLeft(a.end);
+    const s=advStatus(a.end);
+    const pct=Math.max(0,Math.min(100,d/(a.months*30)*100));
+    const fillColor=d<=7?'#E24B4A':d<=14?'#BA7517':'#1DB954';
+    return `<div class="adv-card">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="adv-name">${a.name}</div>
+        <span class="badge ${s.cls}">${s.label}</span>
+      </div>
+      <div class="adv-meta">Spotify ${a.plan} · ${a.months} month${a.months>1?'s':''} · ₱${a.amount.toFixed(2)} · via ${a.method}</div>
+      <div class="adv-meta" style="margin-top:3px">${fmtDate(a.start)} → ${fmtDate(a.end)} · ${d>=0?d+' day(s) left':'Expired '+Math.abs(d)+' day(s) ago'}</div>
+      <div class="days-bar"><div class="days-fill" style="width:${pct}%;background:${fillColor}"></div></div>
+      ${a.notes?`<div class="adv-meta" style="margin-top:4px;font-style:italic">${a.notes}</div>`:''}
+      <div class="adv-actions">
+        <button class="btn-sm" onclick="viewAdvance(${a.id})">View receipt</button>
+        <button class="btn-sm" onclick="renewAdvance(${a.id})">Renew</button>
+        <button class="btn-del" onclick="deleteAdvance(${a.id})">&#x2715;</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function viewRecord(id){
+  const r=records.find(r=>r.id===id);if(!r)return;
+  document.getElementById('modal-title').textContent='Payment receipt';
+  document.getElementById('modal-content').innerHTML=`
+    <div class="receipt-line"><span class="rl">Receipt ID</span><span>#${String(r.id).slice(-6)}</span></div>
+    <div class="receipt-line"><span class="rl">Payer</span><span>${r.name}</span></div>
+    <div class="receipt-line"><span class="rl">Plan</span><span>Spotify ${r.plan}</span></div>
+    <div class="receipt-line"><span class="rl">Payment date</span><span>${fmtDate(r.date)}</span></div>
+    <div class="receipt-line"><span class="rl">Method</span><span>${r.method}</span></div>
+    <div class="receipt-line"><span class="rl">Status</span><span><span class="badge badge-${r.status.toLowerCase()}">${r.status}</span></span></div>
+    ${r.notes?`<div class="receipt-line"><span class="rl">Notes</span><span>${r.notes}</span></div>`:''}
+    <div class="receipt-total"><span>Total paid</span><span>₱${r.amount.toFixed(2)}</span></div>`;
+  document.getElementById('modal-bg').classList.add('open');
+}
+
+function viewAdvance(id){
+  const a=advances.find(a=>a.id===id);if(!a)return;
+  const d=daysLeft(a.end);
+  const s=advStatus(a.end);
+  document.getElementById('modal-title').textContent='Advance billing receipt';
+  document.getElementById('modal-content').innerHTML=`
+    <div class="receipt-line"><span class="rl">Receipt ID</span><span>#${String(a.id).slice(-6)}</span></div>
+    <div class="receipt-line"><span class="rl">Payer</span><span>${a.name}</span></div>
+    <div class="receipt-line"><span class="rl">Plan</span><span>Spotify ${a.plan}</span></div>
+    <div class="receipt-line"><span class="rl">Months covered</span><span>${a.months} month${a.months>1?'s':''}</span></div>
+    <div class="receipt-line"><span class="rl">Start</span><span>${fmtDate(a.start)}</span></div>
+    <div class="receipt-line"><span class="rl">Expires</span><span>${fmtDate(a.end)}</span></div>
+    <div class="receipt-line"><span class="rl">Days left</span><span>${d>=0?d+' days':'Expired'}</span></div>
+    <div class="receipt-line"><span class="rl">Status</span><span><span class="badge ${s.cls}">${s.label}</span></span></div>
+    <div class="receipt-line"><span class="rl">Method</span><span>${a.method}</span></div>
+    ${a.notes?`<div class="receipt-line"><span class="rl">Notes</span><span>${a.notes}</span></div>`:''}
+    <div class="receipt-total"><span>Total paid</span><span>₱${a.amount.toFixed(2)}</span></div>`;
+  document.getElementById('modal-bg').classList.add('open');
+}
+
+function renewAdvance(id){
+  const a=advances.find(a=>a.id===id);if(!a)return;
+  switchTab('advance');
+  document.getElementById('adv-name').value=a.name;
+  document.getElementById('adv-plan').value=a.plan;
+  document.getElementById('adv-months').value=a.months;
+  const newStart=new Date(a.end+'T00:00:00');
+  newStart.setDate(newStart.getDate()+1);
+  document.getElementById('adv-start').value=newStart.toISOString().split('T')[0];
+  autoAdvAmount();
+  closeModal();
+}
+
+function closeModal(e){
+  if(!e||e.target===document.getElementById('modal-bg')||e.currentTarget.classList.contains('modal-close')){
+    document.getElementById('modal-bg').classList.remove('open');
+  }
+}
+
+function setFilter(s){filterStatus=s;renderPayments();}
+
+function exportData(){
+  const data={records,advances,exported:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='spotify_receipts_backup.json';a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(e){
+  const file=e.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(data.records)records=data.records;
+      if(data.advances)advances=data.advances;
+      save();renderPayments();renderAdvances();
+      alert('Data imported successfully.');
+    }catch(err){alert('Invalid backup file.');}
+  };
+  reader.readAsText(file);
+}
+
+window.addEventListener('load',()=>{
+  const isStandalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone;
+  if(!isStandalone){document.getElementById('install-banner').style.display='flex';}
+});
+
+renderPayments();renderAdvances();
+</script>
